@@ -1,0 +1,9 @@
+SDL3/
+.cache/
+build/
+CmakeFiles/
+.DS_Store
+.clangd
+.clang-format
+/bin
+.gdb_history

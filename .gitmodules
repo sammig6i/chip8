@@ -1,0 +1,3 @@
+[submodule "chip-8.wiki"]
+	path = chip-8.wiki
+	url = https://github.com/mattmikolay/chip-8.wiki.git
