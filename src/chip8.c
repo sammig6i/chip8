@@ -219,10 +219,145 @@ void cycle(CHIP8_t *cpu) {
     break;
   }
 
-  // TODO DXYN Draw a sprite at position VX, VY with N bytes of sprite data starting at the address stored in I
-  // Set VF to 01 if any set pixels are changed to unset, and 00 otherwise
-  case 0xD:
+  case 0xD: {
+    uint8_t N = cpu->opcode & 0xF;
+    uint8_t x_coord = cpu->V[x];
+    uint8_t y_coord = cpu->V[y];
 
+    cpu->V[0xF] = 0x0;
+    for (int i = 0; i < N; ++i) {
+      uint8_t sprite = cpu->memory[cpu->I + i];
+      uint8_t draw_y = (y_coord + i) % 32;
+
+      for (int bit_idx = 0; bit_idx < 8; ++bit_idx) {
+        uint8_t sprite_pixel = (sprite >> (7 - bit_idx)) & 0x1;
+        uint8_t draw_x = (x_coord + bit_idx) % 64;
+
+        // access the byte index within the gfx array since it is 256 bytes = 2048 bits (64 * 32 pixels)
+        // mask the bit position within this gfx[byte_idx]
+        int pixel_idx = draw_x + (draw_y * 64);
+        uint8_t byte_idx = pixel_idx / 8;
+        uint8_t bit_pos = pixel_idx % 8;
+
+        uint8_t cur_byte = cpu->gfx[byte_idx];
+        uint8_t this_pixel = (cur_byte >> (7 - bit_pos)) & 0x1;
+
+        if (sprite_pixel && this_pixel) {
+          cpu->V[0xF] = 0x1;
+        }
+        // shift sprite pixel back to original position
+        cpu->gfx[byte_idx] ^= sprite_pixel << (7 - bit_pos);
+      }
+    }
+
+    cpu->pc += 2;
+    break;
+  }
+
+  case 0xE:
+    m = cpu->opcode & 0x000F;
+
+    switch (m) {
+    case 0xE: {
+      uint8_t key = cpu->V[x];
+      if (cpu->keys[key] == TRUE) {
+        cpu->pc += 2;
+      }
+      break;
+    }
+
+    case 0x1: {
+      uint8_t key = cpu->V[x];
+      if (cpu->keys[key] == FALSE) {
+        cpu->pc += 2;
+      }
+      break;
+    }
+    }
+    cpu->pc += 2;
+    break;
+
+  // FX07	Store the current value of the delay timer in register VX
+  // FX0A	Wait for a keypress and store the result in register VX
+  // FX15	Set the delay timer to the value of register VX
+  // FX18	Set the sound timer to the value of register VX
+  // FX1E	Add the value stored in register VX to register I
+  // FX29	Set I to the memory address of the sprite data corresponding to the hexadecimal digit stored in register
+  // VX
+  // FX33	Store the binary-coded decimal equivalent of the value stored in register VX at addresses I, I + 1, and
+  // I + 2
+  case 0xF:
+    m = cpu->opcode & 0x00FF;
+
+    switch (m) {
+    case 0x07:
+      cpu->V[x] = cpu->delay_timer;
+      break;
+
+    case 0x0A: {
+      uint8_t was_key_pressed = FALSE;
+      for (int i = 0; i < 16; ++i) {
+        if (cpu->keys[i] == TRUE) {
+          cpu->V[x] = i;
+          was_key_pressed = TRUE;
+          break;
+        }
+      }
+
+      if (!was_key_pressed) {
+        return;
+      }
+
+      break;
+    }
+
+    case 0x15:
+      cpu->delay_timer = cpu->V[x];
+      break;
+
+    case 0x18:
+      cpu->sound_timer = cpu->V[x];
+      break;
+
+    case 0x1E:
+      cpu->I += cpu->V[x];
+      break;
+
+    case 0x29:
+      cpu->I = cpu->V[x] * 0x5;
+      break;
+
+    case 0x33: {
+      uint8_t decimal_digit = cpu->V[x];
+      for (int i = 0; i < 3; ++i) {
+        uint8_t digit = decimal_digit % 10;
+        cpu->memory[cpu->I + i] = digit;
+        decimal_digit /= 10;
+      }
+      break;
+    }
+
+    // FX55	Store the values of registers V0 to VX inclusive in memory starting at address I
+    // I is set to I + X + 1 after operation²
+    case 0x55:
+      for (int i = 0; i <= x; ++i) {
+        cpu->memory[cpu->I + i] = cpu->V[i];
+      }
+      cpu->I += x + 1;
+      break;
+
+    // FX65	Fill registers V0 to VX inclusive with the values stored in memory starting at address I
+    // I is set to I + X + 1 after operation²
+    case 0x65:
+      for (int i = 0; i <= x; ++i) {
+        cpu->V[i] = cpu->memory[cpu->I + i];
+      }
+
+      cpu->I += x + 1;
+      break;
+    }
+
+    cpu->pc += 2;
     break;
   }
 }

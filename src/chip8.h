@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#define TRUE 1
+#define FALSE 0
+
 typedef struct CHIP8 {
     uint16_t opcode;
     uint8_t memory[4096];
